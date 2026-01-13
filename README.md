@@ -11,4 +11,5 @@ pi-music/
 ```
 ## 環境建置
 檔案用好以後在資料夾內下`docker compose up --build -d`
+
 查看日誌`docker logs -f pi-music`
