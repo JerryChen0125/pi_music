@@ -12,6 +12,8 @@ pi-music/
 ## 環境建置
 需要自己的 YT cookie 命名為 `cookies.txt` 放在 app 資料夾內
 
+Cookie 可以下載 [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 查找
+
 檔案用好以後在資料夾內下 `docker compose up --build -d`
 
 查看日誌 `docker logs -f pi-music`
