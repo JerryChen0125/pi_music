@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pi Music</title>
+    <style>
+        :root {
+            --bg-color: #030303;
+            --bar-color: #212121;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --accent-color: #ff0000;
+            --hover-color: #ffffff1a;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: "Roboto", "Arial", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header { padding: 12px 16px; background-color: var(--bg-color); display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
+        .search-container { flex: 1; background-color: #212121; border-radius: 8px; display: flex; align-items: center; padding: 0 10px; border: 1px solid #333; }
+        input { flex: 1; background: transparent; border: none; color: white; padding: 10px; font-size: 16px; outline: none; }
+        .btn-icon { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+        .btn-icon:hover { background-color: var(--hover-color); }
+        .btn-icon svg { width: 24px; height: 24px; fill: currentColor; }
+
+        .toggle-wrapper { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .toggle-switch { position: relative; width: 40px; height: 20px; background: #555; border-radius: 20px; transition: 0.3s; }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: 0.3s; }
+        #rec-check { display: none; }
+        #rec-check:checked + .toggle-switch { background: var(--accent-color); }
+        #rec-check:checked + .toggle-switch::after { transform: translateX(20px); }
+        .rec-label { font-size: 12px; color: var(--text-secondary); user-select: none;}
+
+        .tabs { display: flex; padding: 0 16px 10px; border-bottom: 1px solid #333; background-color: var(--bg-color); }
+        .tab-btn { background: none; border: none; color: var(--text-secondary); font-size: 15px; font-weight: 500; padding: 10px 20px; cursor: pointer; text-transform: uppercase; position: relative; }
+        .tab-btn.active { color: white; }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background-color: white; }
+
+        .content-area { flex: 1; overflow-y: auto; padding: 10px 0; padding-bottom: 90px; }
+        .list-view { display: none; }
+        .list-view.active { display: block; }
+        .empty-msg { text-align: center; color: var(--text-secondary); margin-top: 50px; }
+
+        .song-row { display: flex; align-items: center; padding: 10px 16px; gap: 15px; cursor: pointer; transition: background 0.2s; }
+        .song-row:hover { background-color: var(--hover-color); }
+        .thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; background-color: #333; }
+        .song-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+        .song-title { font-size: 14px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        
+        .song-action { display: flex; gap: 10px; }
+        .action-chip { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.1); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.1); }
+        .action-chip:active { background: white; color: black; }
+
+        .btn-delete { background: none; border: none; color: #666; padding: 10px; cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .btn-delete:hover { color: #ff4d4d; background-color: rgba(255, 77, 77, 0.1); }
+        .btn-delete svg { width: 20px; height: 20px; fill: currentColor; }
+
+        .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--bar-color); height: 72px; display: flex; align-items: center; padding: 0 16px; z-index: 100; border-top: 1px solid #333; justify-content: space-between; }
+        .progress-line { position: absolute; top: -1px; left: 0; height: 2px; background-color: var(--accent-color); width: 0%; transition: width 0.5s; z-index: 101; }
+        
+        .pb-controls { display: flex; align-items: center; gap: 10px; }
+        .pb-info { flex: 1; display: flex; align-items: center; gap: 12px; margin: 0 20px; overflow: hidden; justify-content: center; }
+        .pb-thumb { width: 40px; height: 40px; border-radius: 2px; display: none; }
+        @media (min-width: 600px) { .pb-thumb { display: block; } }
+        .pb-text { display: flex; flex-direction: column; overflow: hidden; max-width: 200px; }
+        
+        .pb-actions { display: flex; align-items: center; gap: 5px; }
+        .vol-indicator { font-size: 12px; color: var(--text-secondary); width: 30px; text-align: center; }
+        
+        .icon-btn { background: none; border: none; color: white; padding: 8px; cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .icon-btn:hover { background-color: var(--hover-color); }
+        .icon-btn svg { width: 26px; height: 26px; fill: currentColor; }
+        .icon-btn.play-pause svg { width: 32px; height: 32px; }
+        .icon-sm svg { width: 20px; height: 20px; fill: #aaa; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="search-container">
+        <button class="btn-icon" onclick="search()"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"/></svg></button>
+        <input type="text" id="keyword" placeholder="搜尋歌曲..." onkeypress="handleEnter(event)">
+    </div>
+    <label class="toggle-wrapper">
+        <input type="checkbox" id="rec-check">
+        <div class="toggle-switch"></div>
+        <span class="rec-label">自動推薦</span>
+    </label>
+</header>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('search')">搜尋結果</button>
+    <button class="tab-btn" onclick="switchTab('queue')">播放清單 <span id="q-count" style="font-size:0.8em; opacity:0.7">(0)</span></button>
+</div>
+
+<div class="content-area">
+    <div id="search-view" class="list-view active">
+        <div id="results" class="empty-msg">輸入關鍵字開始點歌</div>
+    </div>
+    <div id="queue-view" class="list-view">
+        <div id="queue-list" class="empty-msg">清單是空的</div>
+    </div>
+</div>
+
+<div class="player-bar">
+    <div class="progress-line" id="progress-bar"></div>
+    <div class="pb-controls">
+        <button class="icon-btn" onclick="alert('目前不支援上一首')"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+        <button class="icon-btn play-pause" id="play-btn" onclick="control('pause')"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="icon-btn" onclick="control('skip')"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+    </div>
+    <div class="pb-info">
+        <img id="np-img" class="pb-thumb" src="https://via.placeholder.com/40" alt="">
+        <div class="pb-text">
+            <div id="np-title" class="song-title">未播放</div>
+            <div id="np-artist" style="font-size:12px; color:#aaa;">Ready</div>
+        </div>
+    </div>
+    <div class="pb-actions">
+        <button class="icon-btn icon-sm" onclick="adjustVolume(-10)"><svg viewBox="0 0 24 24"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg></button>
+        <span id="vol-display" class="vol-indicator">80</span>
+        <button class="icon-btn icon-sm" onclick="adjustVolume(10)"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></button>
+    </div>
+</div>
+
+<script>
+    let currentVolume = 80;
+    let currentSearchResults = [];
+    // --- 新增：記錄清單版本號 ---
+    let lastQueueVersion = 0;
+
+    const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+
+    function handleEnter(e) { if(e.key === 'Enter') search(); }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.list-view').forEach(v => v.classList.remove('active'));
+        
+        if(tab === 'search') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('search-view').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('queue-view').classList.add('active');
+            // 切換過來時，不管版本有沒有變，先更新一次
+            fetchQueue();
+        }
+    }
+
+    async function search() {
+        const q = document.getElementById('keyword').value;
+        if(!q) return;
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '<div style="text-align:center; padding:20px; color:#666">搜尋中...</div>';
+        try {
+            const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            currentSearchResults = data;
+            let html = '';
+            data.forEach((item, index) => {
+                html += `
+                <div class="song-row">
+                    <img class="thumb" src="${item.thumbnail}" onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="song-info">
+                        <div class="song-title">${item.title}</div>
+                        <div class="song-action">
+                            <div class="action-chip" onclick="addByIndex(this, ${index}, false)">+ 點歌</div>
+                            <div class="action-chip" onclick="addByIndex(this, ${index}, true)" style="color:#ffcc00; border-color:#ffcc0033">⚡ 插播</div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            resultsDiv.innerHTML = html || '<div class="empty-msg">找不到結果</div>';
+        } catch(e) { resultsDiv.innerHTML = '<div class="empty-msg">搜尋失敗</div>'; }
+    }
+
+    async function addByIndex(el, index, insertNext) {
+        const item = currentSearchResults[index];
+        if (!item) return;
+        const isRecommendOn = document.getElementById('rec-check').checked;
+        const originalText = el.innerText;
+        el.innerText = '✓';
+        el.style.backgroundColor = '#fff';
+        el.style.color = '#000';
+        
+        try {
+            await fetch('/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ...item, insert_next: insertNext, recommend: isRecommendOn })
+            });
+            if (isRecommendOn) setTimeout(() => alert('已加入！系統正在背景尋找相似歌曲...'), 500);
+        } catch(e) { console.error(e); }
+        
+        updateStatus();
+        setTimeout(() => {
+            el.innerText = originalText;
+            el.style.backgroundColor = ''; 
+            el.style.color = '';
+        }, 1000);
+    }
+
+    async function fetchQueue() {
+        try {
+            const res = await fetch('/queue');
+            const data = await res.json();
+            const list = document.getElementById('queue-list');
+            
+            if(!data.length) {
+                list.innerHTML = '<div class="empty-msg">清單是空的</div>';
+                document.getElementById('q-count').innerText = '(0)';
+                return;
+            }
+            
+            let html = '';
+            data.forEach((item, i) => {
+                const isRec = item.title.includes('[推薦]');
+                const titleStyle = isRec ? 'color: #ffcc00;' : '';
+                html += `
+                <div class="song-row" style="cursor:default">
+                    <div style="color:#aaa; font-weight:bold; width:20px">${i+1}</div>
+                    <img class="thumb" src="${item.thumbnail}" onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="song-info">
+                        <div class="song-title" style="${titleStyle}">${item.title}</div>
+                    </div>
+                    <button class="btn-delete" onclick="removeSong(${i})">
+                        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                </div>`;
+            });
+            list.innerHTML = html;
+            document.getElementById('q-count').innerText = `(${data.length})`;
+        } catch(e) {}
+    }
+
+    async function removeSong(index) {
+        if(!confirm('確定要刪除這首歌嗎？')) return;
+        try {
+            await fetch(`/remove?index=${index}`, {method: 'POST'});
+            // 注意：這裡不需要手動 call fetchQueue()，因為刪除成功後
+            // 後端版本號會更新，下次 updateStatus 輪詢時就會自動刷新了
+            // 這樣可以保證多裝置同步
+        } catch(e) { alert('刪除失敗'); }
+    }
+
+    async function control(action) {
+        await fetch(`/control/${action}`, {method:'POST'});
+        updateStatus();
+    }
+
+    async function adjustVolume(step) {
+        let newVol = currentVolume + step;
+        if (newVol > 100) newVol = 100;
+        if (newVol < 0) newVol = 0;
+        currentVolume = newVol;
+        document.getElementById('vol-display').innerText = newVol;
+        await fetch(`/control/volume?level=${newVol}`, {method:'POST'});
+    }
+
+    async function updateStatus() {
+        try {
+            const res = await fetch('/status');
+            const data = await res.json();
+            
+            // --- 自動同步邏輯 ---
+            // 檢查後端版本號，如果跟本地紀錄不一樣，代表有人動過清單
+            if (data.queue_version && data.queue_version !== lastQueueVersion) {
+                console.log("偵測到清單變動，自動刷新...");
+                lastQueueVersion = data.queue_version;
+                // 只有當使用者正在看清單分頁時，才需要重繪 DOM，節省效能
+                // 或者為了讓計數器 (0) 更新，我們乾脆都更新
+                fetchQueue();
+            }
+
+            const titleEl = document.getElementById('np-title');
+            const imgEl = document.getElementById('np-img');
+            const artistEl = document.getElementById('np-artist');
+            const playBtn = document.getElementById('play-btn');
+            const progressBar = document.getElementById('progress-bar');
+
+            if (data.current_song) {
+                titleEl.innerText = data.current_song.title;
+                imgEl.src = data.current_song.thumbnail;
+                progressBar.style.width = data.is_playing ? '100%' : '0%';
+            } else {
+                titleEl.innerText = "未播放";
+                progressBar.style.width = '0%';
+            }
+
+            if (data.is_playing) {
+                playBtn.innerHTML = ICON_PAUSE;
+                artistEl.innerText = "播放中";
+            } else {
+                playBtn.innerHTML = ICON_PLAY;
+                artistEl.innerText = "已暫停";
+            }
+            
+            // 確保清單數量顯示正確
+            document.getElementById('q-count').innerText = `(${data.queue_len})`;
+            
+            currentVolume = data.volume;
+            document.getElementById('vol-display').innerText = currentVolume;
+
+        } catch(e) {}
+    }
+    
+    // 每 2 秒同步一次
+    setInterval(updateStatus, 2000);
+    updateStatus();
+</script>
+</body>
+</html>
