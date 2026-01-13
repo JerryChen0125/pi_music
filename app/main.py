@@ -74,7 +74,15 @@ class MusicPlayer:
             'noplaylist': True,
             'force_ipv4': True,
             'cache_dir': '/tmp/yt-dlp',
-            'extractor_args': {'youtube': {'player_client': ['android']}},
+            
+            # 👇 1. 刪除這行！(不要用 ios 也不要用 android)
+            # 'extractor_args': {'youtube': {'player_client': ['ios']}}, 
+            
+            # 👇 2. 新增這行！偽裝成 Windows 電腦上的 Chrome
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+
+            # 👇 3. 保留這行 (你的 Cookies)
+            'cookiefile': '/app/cookies.txt', 
         }
         
         try:
