@@ -10,6 +10,12 @@ pi-music/
 └── requirements.txt       (Python 套件清單，這很重要！)
 ```
 ## 環境建置
-檔案用好以後在資料夾內下`docker compose up --build -d`
+需要自己的 YT cookie 命名為 `cookies.txt` 放在 app 資料夾內
 
-查看日誌`docker logs -f pi-music`
+Cookie 可以下載 [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 查找
+
+檔案用好以後在資料夾內下 `docker compose up --build -d`
+
+查看日誌 `docker logs -f pi-music`
+
+另外網址要用 ip 來搜尋如 `http://192.168.0.123:8000` 或是 `http://{主機名稱}.local:8000`
