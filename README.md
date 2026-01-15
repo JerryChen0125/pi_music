@@ -18,4 +18,6 @@ Cookie 可以下載 [Get cookies.txt LOCALLY](https://chromewebstore.google.com/
 
 查看日誌 `docker logs -f pi-music`
 
-另外網址要用 ip 來搜尋如 `http://192.168.0.123:8000` 或是 `http://{主機名稱}.local:8000`
+啟動時會自動說 IP 不用再查找
+
+另外網址要用 IP 來搜尋如 `http://192.168.0.123:8000` 或是 `http://{主機名稱}.local:8000`
