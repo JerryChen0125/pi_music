@@ -1,9 +1,12 @@
-# 建議升級到 python 3.11，比較穩定且支援新版套件
+# 升級到 Python 3.11
 FROM python:3.11-slim-bullseye
 
-# 安裝系統層級依賴
-# 重點：新增了 'nodejs'，這是 yt-dlp 解密 YouTube 簽章必須的工具
+# 安裝系統依賴
+# 新增 build-essential 和 python3-dev (為了解決 pip install 失敗)
+# 新增 nodejs (為了解決 yt-dlp 簽章問題)
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
     vlc \
     libvlc-dev \
     alsa-utils \
@@ -14,16 +17,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 1. 先複製需求清單並安裝
+# 1. 複製並安裝 Python 套件
 COPY requirements.txt .
-# 升級 pip 並安裝套件
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # 2. 複製程式碼
 COPY ./app /app
 
-# 修正權限 (為了 PulseAudio)
+# 修正權限
 RUN chown -R 1000:1000 /app
 
 # 設定環境變數

@@ -4,25 +4,20 @@ services:
   jukebox:
     build: .
     container_name: pi_jukebox
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
-    # --------------------------------------------
-    # 藍牙音效設定 (PulseAudio Socket)
-    # --------------------------------------------
-    environment:
-      # 告訴容器音效伺服器在哪裡
-      - PULSE_SERVER=unix:/run/user/1000/pulse/native
-      # 為了避免權限問題，我們讓容器知道 cookie 位置
-      - PULSE_COOKIE=/run/user/1000/pulse/cookie
-      - HOME=/app
+    restart: always
+    # 關鍵：讓容器直接使用樹莓派實體網路，這樣程式才抓得到 wlan0
+    network_mode: host
+    
+    # 注意：Host 模式下不需要 ports 設定，請務必移除
+    # ports:
+    #   - "8000:8000"
+    
+    devices:
+      - /dev/snd:/dev/snd
     volumes:
       - ./app:/app
-      # 掛載宿主機的 PulseAudio 插座，讓容器可以傳送聲音
       - /run/user/1000/pulse:/run/user/1000/pulse
-      # 掛載設定檔以讀取權限 Cookie
-      - /home/pi/.config/pulse/cookie:/run/user/1000/pulse/cookie
-    # 使用 pi 使用者 (UID 1000) 執行，這樣才有權限用藍牙
-    user: "1000:1000"
-    group_add:
-      - audio
+    environment:
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - PULSE_COOKIE=/run/user/1000/pulse/cookie
+      - HOME=/app

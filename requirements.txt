@@ -2,6 +2,9 @@ fastapi
 uvicorn
 jinja2
 python-multipart
-python-vlc
 yt-dlp
 ytmusicapi
+python-vlc
+gTTS
+netifaces
+requests

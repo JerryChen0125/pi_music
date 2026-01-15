@@ -9,6 +9,9 @@ import threading
 import time
 from collections import deque
 from pydantic import BaseModel
+from gtts import gTTS
+import netifaces
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,8 +36,7 @@ class MusicPlayer:
         self.volume = 80           
         self.player.audio_set_volume(self.volume)
         
-        # --- 新增：清單版本號 ---
-        # 只要清單有變動，這個數字就會變，前端偵測到變動就會自動刷新
+        # --- 清單版本號 ---
         self.queue_version = int(time.time())
 
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -54,11 +56,11 @@ class MusicPlayer:
     def play_next(self):
         if self.queue:
             next_song = self.queue.popleft()
-            self._update_version() # 清單少了一首，更新版本
+            self._update_version() 
             self.play_song(next_song)
         else:
             self.current_song = None
-            self._update_version() # 清單空了，更新版本
+            self._update_version()
             logger.info("播放清單已空")
 
     def play_song(self, song_info):
@@ -74,14 +76,7 @@ class MusicPlayer:
             'noplaylist': True,
             'force_ipv4': True,
             'cache_dir': '/tmp/yt-dlp',
-            
-            # 👇 1. 刪除這行！(不要用 ios 也不要用 android)
-            # 'extractor_args': {'youtube': {'player_client': ['ios']}}, 
-            
-            # 👇 2. 新增這行！偽裝成 Windows 電腦上的 Chrome
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-
-            # 👇 3. 保留這行 (你的 Cookies)
             'cookiefile': '/app/cookies.txt', 
         }
         
@@ -107,7 +102,7 @@ class MusicPlayer:
         else:
             self.queue.append(song)
         
-        self._update_version() # 新增歌曲，更新版本
+        self._update_version()
         
         if not self.player.is_playing() and self.player.get_state() != vlc.State.Paused:
             self.play_next()
@@ -115,7 +110,7 @@ class MusicPlayer:
     def remove_from_queue(self, index: int):
         if 0 <= index < len(self.queue):
             del self.queue[index]
-            self._update_version() # 刪除歌曲，更新版本
+            self._update_version()
             return True
         return False
 
@@ -141,10 +136,69 @@ class MusicPlayer:
             "current_song": self.current_song,
             "volume": self.volume,
             "queue_len": len(self.queue),
-            "queue_version": self.queue_version # 回傳版本號給前端
+            "queue_version": self.queue_version
         }
 
+# --- 關機 API ---
+@app.post("/system/shutdown")
+def system_shutdown():
+    logger.info("收到關機指令，正在關閉樹莓派...")
+    os.system("dbus-send --system --print-reply --dest=org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager.PowerOff boolean:true")
+    return {"status": "shutting_down", "message": "樹莓派正在關機，請等待綠燈熄滅後拔除電源"}
+
 music_mgr = MusicPlayer()
+
+# --- 播報 IP 功能 (防截斷修正版) ---
+def speak_ip():
+    """抓取 wlan0 IP 並朗讀"""
+    logger.info("準備播報 IP...")
+    # 增加開機等待時間，確保音效驅動完全載入
+    time.sleep(6) 
+    
+    try:
+        ip = None
+        if 'wlan0' in netifaces.interfaces():
+            try:
+                addrs = netifaces.ifaddresses('wlan0')
+                if netifaces.AF_INET in addrs:
+                    ip = addrs[netifaces.AF_INET][0]['addr']
+            except Exception: pass
+        
+        if not ip and 'eth0' in netifaces.interfaces():
+            try:
+                addrs = netifaces.ifaddresses('eth0')
+                if netifaces.AF_INET in addrs:
+                    ip = addrs[netifaces.AF_INET][0]['addr']
+            except Exception: pass
+        
+        if ip:
+            # 修正 1：在最後面加一句廢話 "報告完畢"，這樣就算被截斷也是截斷這句
+            text = f"開機成功，WiFi位置是 {ip.replace('.', '點')}。報告完畢。"
+            logger.info(f"播報 IP: {ip}")
+            
+            tts = gTTS(text=text, lang='zh-tw')
+            tts.save("/tmp/ip.mp3")
+            
+            media = music_mgr.vlc_instance.media_new("/tmp/ip.mp3")
+            music_mgr.player.set_media(media)
+            music_mgr.player.play()
+            
+            # 修正 2：智慧等待邏輯
+            # 先睡 1 秒讓 VLC 開始播放
+            time.sleep(1)
+            
+            # 只要還在播，就持續等待 (每 0.2 秒檢查一次)
+            while music_mgr.player.is_playing():
+                time.sleep(0.2)
+            
+            # 播完後再多等 1 秒緩衝，確保聲音完全送出
+            time.sleep(1)
+            music_mgr.player.stop()
+        else:
+            logger.warning("未找到有效 IP")
+            
+    except Exception as e:
+        logger.error(f"播報 IP 失敗: {e}")
 
 # --- 背景任務 ---
 def fetch_recommendations_task(video_id: str):
@@ -184,6 +238,10 @@ def fetch_recommendations_task(video_id: str):
         logger.info(f"YT Music 推薦完成，共加入 {added_count} 首")
     except Exception as e:
         logger.error(f"推薦系統錯誤: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    threading.Thread(target=speak_ip, daemon=True).start()
 
 # --- API ---
 @app.get("/")
