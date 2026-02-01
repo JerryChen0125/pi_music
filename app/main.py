@@ -71,12 +71,18 @@ class MusicPlayer:
         logger.info(f"正在解析: {song_info['title']}")
         
         ydl_opts = {
-            'format': 'bestaudio/best',
+            # 優先嘗試 m4a 格式 (VLC 最愛)，沒有的話才選其他的
+            'format': 'bestaudio[ext=m4a]/bestaudio/best',
             'quiet': True,
             'noplaylist': True,
             'force_ipv4': True,
             'cache_dir': '/tmp/yt-dlp',
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            
+            # 👇 【關鍵修改】改用 'android_creator' (YouTube Studio APP)
+            # 這個客戶端目前較少受到 PO Token 的限制
+            'extractor_args': {'youtube': {'player_client': ['android_creator']}},
+            
+            # 👇 繼續使用你的 Cookies
             'cookiefile': '/app/cookies.txt', 
         }
         
@@ -89,11 +95,14 @@ class MusicPlayer:
             self.player.set_media(media)
             self.player.play()
             
-            time.sleep(0.5) 
+            # 稍微等待 VLC 緩衝
+            time.sleep(1.0) 
             self.player.audio_set_volume(self.volume)
             
         except Exception as e:
             logger.error(f"播放失敗: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             self.play_next()
 
     def add_to_queue(self, song: dict, at_front: bool = False):

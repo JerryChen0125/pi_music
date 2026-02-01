@@ -20,7 +20,8 @@ WORKDIR /app
 # 1. 複製並安裝 Python 套件
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --upgrade yt-dlp
 
 # 2. 複製程式碼
 COPY ./app /app
